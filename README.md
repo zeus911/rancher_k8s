@@ -162,3 +162,15 @@ end
   sudo apt-get autoremove virtualbox-dkms
   sudo apt-get install build-essential linux-headers-`uname -r` dkms virtualbox-dkms
   ```
+### 前置操作
+- 换阿里源
+- install docker
+- install rancher `sudo docker run -d --restart=unless-stopped -p 80:80 -p 443:443 rancher/rancher`
+安装完 他会自己搭建一套K3S集群 + etcd
+### K8s CNI 网络插件对比
+- 最流行的插件
+    - Flannel
+    - Calico
+    - Canal
+    - Weave
+参考文档: https://rancher.com/blog/2019/2019-03-21-comparing-kubernetes-cni-providers-flannel-calico-canal-and-weave/
