@@ -3,7 +3,7 @@
 ### 常用部署解决方案
 - Kops        生产级别
 - Kubespray   生产级别
-- Kubeadm     玩具
+- Kubeadm    
 - Rancher     生产级别
 
 Kops和Kubespary在国外用的比较多，没有处理中国的网络问题，没法使用。
@@ -174,3 +174,110 @@ end
     - Canal
     - Weave
 参考文档: https://rancher.com/blog/2019/2019-03-21-comparing-kubernetes-cni-providers-flannel-calico-canal-and-weave/
+
+### 生产级安装
+- Master 需要至少3个节点才能保障服务的高可用
+
+| 部署规模	|集群	|节点	|vCPUs	|内存|
+| ---- | ---- | ---- | ---- | --- |
+|小	|最多 150 个	|最多 1500 个	|2	|8 GB|
+|中	|最多 300 个	|最多 3000 个	|4	|16 GB|
+|大	|最多 500 个	|最多 5000 个	|8	|32 GB|
+|特大	|最多 1000 个|	最多 10,000 个	|16	|64 GB|
+|超大	|最多 2000 个|	最多 20,000 个	|32	|128 GB|
+
+### Rancher 安装
+- Docker 安装Rancher 这个是开箱即的 但是未来Rancher很难迁移到K8s上(适合开发or测试环境)
+- RKE 通过RKE安装K8s  在K8s基础上安装Rancher
+- K3S 通过K3S安装K8s  在K3S基础上安装Rancher  (The certified Kubernetes distribution built for IoT & Edge computing 轻量级)
+
+#### 演示通过K3s 搭建K8s
+- 1. 创建一台虚拟机 
+使用到的配置
+```ruby
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+Vagrant.configure("2") do |config|
+  config.vm.box = "ubuntu20"
+  config.vm.hostname = "k3s-k8s"
+  config.vm.network "public_network", ip: "192.168.88.181"
+  #config.vm.network "public_network"
+  config.vm.provider "virtualbox" do |vb|
+    vb.memory = "8224"
+    vb.cpus = 4
+  end
+end
+```
+- 2. install k3s
+    - 注意k3s数据存 这里演示在mysql上
+``` 
+curl -sfL https://docs.rancher.cn/k3s/k3s-install.sh | INSTALL_K3S_MIRROR=cn sh -s - server \
+--datastore-endpoint="mysql://root:root@tcp(192.168.88.19:3306)/k3s"
+```
+检测是否安装成功
+``` 
+sudo k3s kubectl get nodes
+```
+检测容器运行状况
+``` 
+sudo k3s kubectl get pods --all-namespaces
+```
+生成文件访问凭证位置 `/etc/rancher/k3s/k3s.yaml`  这个就是kubeconfig
+
+
+#### 演示通过RKE 搭建K8s
+- install kubectl
+``` 
+curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
+chmod +x kubectl
+sudo mv kubectl /usr/local/bin/kubectl
+kubectl version --client
+```
+- install docker  (`curl -sSL https://raw.githubusercontent.com/dollarkillerx/MyNodeBook/master/docker/ubuntu20_install_docker.sh | sudo bash`)
+- 调整防火墙
+``` 
+     firewall-cmd --permanent --add-port=22/tcp
+     firewall-cmd --permanent --add-port=80/tcp
+     firewall-cmd --permanent --add-port=443/tcp
+
+     firewall-cmd --permanent --add-port=30000-32767/tcp
+     firewall-cmd --permanent --add-port=30000-32767/udp
+
+     firewall-cmd --reload
+```
+- 同步时间
+``` 
+ntpdate time1.aliyun.com
+```
+- 创建集群配置文件 cluster.yml
+``` 
+rke config --name cluster.yml
+```
+我们在这里使用的  rke config --name  cluster.yml 会向导生成配置文件   (这里填写具体的服务连接方式)
+``` 
+nodes:
+  - address: 165.227.114.63
+    internal_address: 172.16.22.12
+    user: ubuntu
+    role: [controlplane, worker, etcd]
+  - address: 165.227.116.167
+    internal_address: 172.16.32.37
+    user: ubuntu
+    role: [controlplane, worker, etcd]
+  - address: 165.227.127.226
+    internal_address: 172.16.42.73
+    user: ubuntu
+    role: [controlplane, worker, etcd]
+
+services:
+  etcd:
+    snapshot: true
+    creation: 6h
+    retention: 24h
+
+# 当使用外部 TLS 终止，并且使用 ingress-nginx v0.22或以上版本时，必须。
+ingress:
+  provider: nginx
+  options:
+    use-forwarded-headers: "true"
+```
