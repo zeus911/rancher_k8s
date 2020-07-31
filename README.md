@@ -255,17 +255,9 @@ rke config --name cluster.yml
 ```
 我们在这里使用的  rke config --name  cluster.yml 会向导生成配置文件   (这里填写具体的服务连接方式)
 ``` 
-nodes:
+nodes:  # 这里配置服务器节点
   - address: 165.227.114.63
     internal_address: 172.16.22.12
-    user: ubuntu
-    role: [controlplane, worker, etcd]
-  - address: 165.227.116.167
-    internal_address: 172.16.32.37
-    user: ubuntu
-    role: [controlplane, worker, etcd]
-  - address: 165.227.127.226
-    internal_address: 172.16.42.73
     user: ubuntu
     role: [controlplane, worker, etcd]
 
@@ -280,4 +272,91 @@ ingress:
   provider: nginx
   options:
     use-forwarded-headers: "true"
+```
+启动 `rke up --config ./rancher-cluster.yml`
+会在当前目录生成kubeconfig文件
+查看当前集群状态
+`kubectl --kubeconfig kube_config_rancher-cluster.yml get nodes`
+查看当前Pod运行状态
+`kubectl --kubeconfig kube_config_cluster.yml get pods --all-namespaces`
+当前服务文件
+- rancher-cluster.yml: RKE 集群配置文件。
+- kube_config_rancher-cluster.yml: 集群的Kubeconfig 文件，此文件包含用于访问集群的凭据。
+- rancher-cluster.rkestate: Kubernetes 集群状态文件，此文件包含用于完全访问集群的凭据。
+
+#### K8S部署方案小结
+- K3s 部署K8s最为简单
+- RKE 部署K8s 还行 完整的K8S
+
+#### Rancher 部署 以K3s部署为例
+- 推荐使用helm 安装
+##### Helm 快速入门 (k8s包管理工具)
+- install
+``` 
+https://github.com/helm/helm/releases
+wget xxx 
+chmod +x xxx
+sudo mv xxx /usr/local/bin
+```
+- 使用
+    - search
+        - `helm search hub wordpress`
+    - 添加存储库
+        - `helm repo add brigade https://brigadecore.github.io/charts # helm repo add image_name image_addr`
+    - install
+        - `helm install happy-panda stable/mariadb`
+        - `helm status happy-panda`
+- 使用helm install rancher
+    - 添加rancher 源
+        - `helm repo add rancher-stable http://rancher-mirror.oss-cn-beijing.aliyuncs.com/server-charts/stable`
+    - 为rancher 创建 Namespace
+        - `kubectl create namespace cattle-system`
+    - 配置ssl 保障访问安全性
+        - Rancher 自签证书   `ingress.tls.source=rancher`  default  比较安全你使用公共的证书会保留你的域名地址
+        - Let's Encrypt     `ingress.tls.source=letsEncrypt`
+        - 自己证书           `ingress.tls.source=secret`
+    - install cert-manager 创建证书管理中心  (Rancher Let's Encrypt 需要) 
+``` 
+        kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v0.16.0/cert-manager.yaml
+        
+        export KUBECONFIG=/etc/rancher/k3s/k3s.yaml # helm 会用到
+
+        # 为cert-manager 创建命名空间
+        kubectl create namespace cert-manager
+      
+        # 添加 Ketstack Helm 仓库
+        helm repo add jetstack https://charts.jetstack.io
+      
+        # 本地更新 Helm Chart 窗口缓存
+        helm repo update
+      
+        # 安装 cert-manager Helm chart
+        helm install \
+         cert-manager jetstack/cert-manager \
+         --namespace cert-manager \
+         --version v0.16.0
+
+        # 查看状态
+        kubectl get pods --namespace cert-manager
+        # 可能拉取不下来images 替换Helm镜像  Azure镜像
+        helm repo add stable https://mirror.azure.cn/kubernetes/charts/
+        helm repo add incubator https://mirror.azure.cn/kubernetes/charts-incubator/
+        # 查看helm源
+        helm repo list
+        # 删除默认源
+        helm repo remove stable
+
+        # 删除POD
+        kubectl delete pod $POD_NAME --force --grace-period=0
+        # 强制删除NAMESPACE
+        kubectl delete namespace $NAMESPACENAME_NAME --force --grace-period=0
+
+        # 查看pod详情
+        kubectl describe pod --namespace $NAMESPACENAME_NAME $POD_NAME
+        # 查看日志
+        kubectl logs $POD_NAME
+        # 在Pod中执行命令
+        kubectl exec $POD_NAME env
+        # 启动容器中的bash
+        kubectl exec -ti $POD_NAME bash
 ```
