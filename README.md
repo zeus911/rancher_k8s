@@ -213,6 +213,11 @@ end
 ``` 
 curl -sfL https://docs.rancher.cn/k3s/k3s-install.sh | INSTALL_K3S_MIRROR=cn sh -s - server \
 --datastore-endpoint="mysql://root:root@tcp(192.168.88.19:3306)/k3s"
+
+
+使用docker  要提前安装好docker欧  curl -sSL https://raw.githubusercontent.com/dollarkillerx/MyNodeBook/master/docker/ubuntu20_install_docker.sh | sudo bash
+curl -sfL https://docs.rancher.cn/k3s/k3s-install.sh | INSTALL_K3S_MIRROR=cn sh -s - server \
+--datastore-endpoint="mysql://root:root@tcp(192.168.88.19:3306)/k3s" --docker
 ```
 检测是否安装成功
 ``` 
@@ -360,3 +365,23 @@ sudo mv xxx /usr/local/bin
         # 启动容器中的bash
         kubectl exec -ti $POD_NAME bash
 ```
+#### Azure China
+|global	|proxy in China	|format	|example|
+| --- | ---| ---| ---|
+|dockerhub (docker.io)	|dockerhub.azk8s.cn	|dockerhub.azk8s.cn/<repo-name>/<image-name>:<version>	|dockerhub.azk8s.cn/microsoft/azure-cli:2.0.61 |dockerhub.azk8s.cn/library/nginx:1.15|
+|gcr.io	|gcr.azk8s.cn	|gcr.azk8s.cn/<repo-name>/<image-name>:<version>	|gcr.azk8s.cn/google_containers/hyperkube-amd64:v1.13.5|
+|quay.io	|quay.azk8s.cn	|quay.azk8s.cn/<repo-name>/<image-name>:<version>	|quay.azk8s.cn/deis/go-dev:v1.10.0|
+
+- 使用rancher 自签证书
+``` 
+helm install rancher rancher-stable/rancher \
+ --namespace cattle-system \
+ --set hostname=rancher.my.org
+```
+- 验证是否部署成功
+``` 
+kubectl -n cattle-system rollout status deploy/rancher
+kubectl -n cattle-system get deploy rancher
+```
+
+### 创建集群
