@@ -17,7 +17,7 @@ metadata:
 spec:
   replicas: 3  # 副本
   template:
-    metadata:
+    metadata: 
       labels:
         app: nginx
     spec:
@@ -102,3 +102,26 @@ kubectl scale deployments/kubernetes-bootcamp --replicas=4
 ```
 #### 滚动更新
 滚动更新 允许通过使用新的实例逐步更新 Pod 实例，零停机进行 Deployment 更新。新的 Pod 将在具有可用资源的节点上进行调度。
+
+
+#### dns服务发现
+``` 
+<svc-name>.<namespace>.svc.cluster.local
+```
+
+NodePort:  暴露本机端口
+``` 
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-server
+spec:
+  selector:
+    app: nginx
+  type: NodePort
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+    nodePort: 30001
+```
